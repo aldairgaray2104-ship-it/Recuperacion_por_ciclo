@@ -30,7 +30,6 @@
                 <a href="#segment-analysis" class="nav-item"><i class="fa-solid fa-chart-column"></i> Por Segmento y Ciclo</a>
                 <a href="#corte-analysis" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Cortes & FLP</a>
                 <a href="#fee-matrix" class="nav-item"><i class="fa-solid fa-file-invoice-dollar"></i> Esquema Aranceles</a>
-                <a href="#sql-generator" class="nav-item"><i class="fa-solid fa-database"></i> Consultas SQL</a>
             </nav>
 
             <div class="sidebar-footer">
@@ -191,43 +190,44 @@
             </section>
 
             <!-- Section 2: Cortes and FLP Analysis -->
-            <section id="corte-analysis" class="grid-2-col">
-                <div class="card table-card">
-                    <div class="card-header">
-                        <h3><i class="fa-solid fa-calendar-days"></i> Matriz de Cortes y Fecha Límite de Pago (FLP)</h3>
-                        <p class="card-subtitle">Recuperación acumulada por día límite de pago de cada corte (11 Cortes)</p>
-                    </div>
-
-                    <div class="table-wrapper text-sm">
-                        <table class="data-table" id="tableCortes">
-                            <thead>
-                                <tr>
-                                    <th>Corte</th>
-                                    <th>FLP (Día)</th>
-                                    <th>Asignación</th>
-                                    <th>Días C1</th>
-                                    <th>Días C2</th>
-                                    <th>Monto Ciclo 1</th>
-                                    <th>Monto Ciclo 2</th>
-                                    <th>Total Corte</th>
-                                    <th>% C1 / C2</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Dynamic rows for Cortes 3, 5, 8, 10, 11, 15, 19, 20, 23, 25, 28 -->
-                            </tbody>
-                        </table>
-                    </div>
+            <section id="corte-analysis" class="card table-card">
+                <div class="card-header">
+                    <h3><i class="fa-solid fa-calendar-days"></i> Matriz de Cortes y Fecha Límite de Pago (FLP)</h3>
+                    <p class="card-subtitle">Recuperación acumulada y monto contenido por ciclo de cada corte (11 Cortes)</p>
                 </div>
 
-                <div class="card chart-card">
-                    <div class="card-header">
-                        <h3><i class="fa-solid fa-chart-line"></i> Distribución de Recuperación por Corte</h3>
-                        <span class="card-subtitle">Comparativa entre Ciclo 1 y Ciclo 2 en cada corte operativo</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="corteBarChart"></canvas>
-                    </div>
+                <div class="table-wrapper text-sm">
+                    <table class="data-table" id="tableCortes">
+                        <thead>
+                            <tr>
+                                <th>Corte</th>
+                                <th>FLP (Día)</th>
+                                <th>Asignación</th>
+                                <th>Días C1</th>
+                                <th>Días C2</th>
+                                <th>Monto Ciclo 1</th>
+                                <th>Monto Ciclo 2</th>
+                                <th>Contención Ciclo 1</th>
+                                <th>Contención Ciclo 2</th>
+                                <th>Total Corte</th>
+                                <th>% C1 / C2</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Dynamic rows for Cortes 3, 5, 8, 10, 11, 15, 19, 20, 23, 25, 28 -->
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-totals">
+                                <td colspan="5">TOTALES</td>
+                                <td id="totCorteC1">$0.00</td>
+                                <td id="totCorteC2">$0.00</td>
+                                <td id="totCorteCont1" style="color: #10b981;">$0.00</td>
+                                <td id="totCorteCont2" style="color: #f59e0b;">$0.00</td>
+                                <td id="totCorteTotal">$0.00</td>
+                                <td id="totCortePct">100%</td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </section>
 
@@ -312,68 +312,6 @@
                             <p>Convenios/Reestructuras en cualquier ciclo aplican como pago parcial (cuenta no regularizada).</p>
                         </div>
                     </div>
-                </div>
-            </section>
-
-            <!-- Section 4: SQL Code Generator -->
-            <section id="sql-generator" class="card">
-                <div class="card-header">
-                    <div>
-                        <h3><i class="fa-solid fa-terminal"></i> Consulta SQL Optimizada para la Base de Datos</h3>
-                        <p class="card-subtitle">Basada en la subconsulta solicitada excluyendo PREV (<code>WHERE segmento IN ('1','2')</code>) y desglosando por Ciclo 1 vs Ciclo 2</p>
-                    </div>
-                    <button id="btnCopySql" class="btn btn-primary"><i class="fa-solid fa-copy"></i> Copiar SQL</button>
-                </div>
-
-                <div class="sql-code-container">
-                    <pre><code id="sqlCodeText">-- CONSULTA OPTIMIZADA DE RECUPERACIÓN POR SEGMENTO (1 PV Y 2 PV) Y CICLO (JUNIO Y JULIO)
-SELECT 
-    z.segmento,
-    CASE 
-        WHEN DAY(z.fecha_pago) >= c.asig_dia THEN 'Ciclo 1'
-        ELSE 'Ciclo 2'
-    END AS ciclo,
-    SUM(z.monto) AS monto_recuperado,
-    COUNT(*) AS total_pagos,
-    ROUND(
-        SUM(z.monto) * 100.0 / SUM(SUM(z.monto)) OVER(PARTITION BY z.segmento), 2
-    ) AS pct_recuperacion_ciclo
-FROM (
-    SELECT 
-        CASE 
-            WHEN pago_descuento = 0 THEN 'PREV'
-            ELSE tipo_asignacion 
-        END AS segmento,
-        monto,
-        fecha_pago,
-        corte,
-        espagogestion
-    FROM pagos_b 
-    WHERE MONTH(fecha_pago) IN (6, 7)
-      AND espagogestion = 1
-) z
-INNER JOIN (
-    -- Mapeo oficial de Corte y Día de Asignación (Imagen 1 y 2)
-    SELECT 3 AS corte, 4 AS asig_dia UNION ALL
-    SELECT 5, 6 UNION ALL
-    SELECT 8, 9 UNION ALL
-    SELECT 10, 11 UNION ALL
-    SELECT 11, 12 UNION ALL
-    SELECT 15, 16 UNION ALL
-    SELECT 19, 20 UNION ALL
-    SELECT 20, 21 UNION ALL
-    SELECT 23, 24 UNION ALL
-    SELECT 25, 26 UNION ALL
-    SELECT 28, 29
-) c ON z.corte = c.corte
-WHERE z.segmento IN ('1', '2')
-GROUP BY 
-    z.segmento,
-    CASE 
-        WHEN DAY(z.fecha_pago) >= c.asig_dia THEN 'Ciclo 1'
-        ELSE 'Ciclo 2'
-    END
-ORDER BY z.segmento, ciclo;</code></pre>
                 </div>
             </section>
         </main>

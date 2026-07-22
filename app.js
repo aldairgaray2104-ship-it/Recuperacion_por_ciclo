@@ -58,34 +58,32 @@ function formatPct(value) {
     return value.toFixed(2) + '%';
 }
 
-// Real Database Metrics (From MySQL `pagos_b` table - Evaluating June & July Payments)
-// Ciclo 1: Payments on or after assignment day in July (asig_dia to 31/07)
-// Ciclo 2: Payments before assignment day in July (01/07 to asig_dia-1), representing Ciclo 2 of previous June assignment
+// Real Aiven Cloud Database Metrics (From `procesos.pagos_b` - 175,355 rows)
 const REAL_DB_SEGMENT_STATS = {
     "1 PV": {
-        "total": 16189311.49,
-        "c1": 3470467.77,
-        "c2": 12718843.72
+        "total": 36283577.18,
+        "c1": 13520575.22,
+        "c2": 22763001.96
     },
     "2 PV": {
-        "total": 3194844.74,
-        "c1": 495280.33,
-        "c2": 2699564.41
+        "total": 8419557.12,
+        "c1": 2265362.21,
+        "c2": 6154194.91
     }
 };
 
 const REAL_DB_CORTE_STATS = {
-    3:  { c1: 10130.68,   c2: 500.00,       total: 10630.68 },
-    5:  { c1: 12966.00,   c2: 0.00,         total: 12966.00 },
-    8:  { c1: 505625.71,  c2: 320166.61,    total: 825792.32 },
-    10: { c1: 2375103.27, c2: 1881230.18,   total: 4256333.45 },
-    11: { c1: 78970.71,   c2: 150905.61,    total: 229876.32 },
-    15: { c1: 980001.73,  c2: 1965921.52,   total: 2945923.25 },
-    19: { c1: 2950.00,    c2: 169847.51,    total: 172797.51 },
-    20: { c1: 0.00,       c2: 2138981.86,   total: 2138981.86 },
-    23: { c1: 0.00,       c2: 2771055.58,   total: 2771055.58 },
-    25: { c1: 0.00,       c2: 4459707.90,   total: 4459707.90 },
-    28: { c1: 0.00,       c2: 1560091.36,   total: 1560091.36 }
+    3:  { c1: 16992.68,   c2: 500.00,       total: 17492.68 },
+    5:  { c1: 21953.00,   c2: 0.00,         total: 21953.00 },
+    8:  { c1: 1143426.66, c2: 662336.20,    total: 1805762.86 },
+    10: { c1: 5729826.36, c2: 3610825.38,   total: 9340651.74 },
+    11: { c1: 226526.91,  c2: 288073.42,    total: 514600.33 },
+    15: { c1: 2903950.12, c2: 3706364.54,   total: 6610314.66 },
+    19: { c1: 132911.08,  c2: 315479.17,    total: 448390.25 },
+    20: { c1: 1369752.31, c2: 3631524.35,   total: 5001276.66 },
+    23: { c1: 1563720.75, c2: 5335652.98,   total: 6899373.73 },
+    25: { c1: 2227176.25, c2: 8343681.79,   total: 10570858.04 },
+    28: { c1: 449701.31,  c2: 3022759.04,   total: 3472460.35 }
 };
 
 function generateDemoData() {
@@ -103,12 +101,21 @@ function calculateMetrics() {
 
     // 2. Corte Breakdown Aggregation
     const corteStats = {};
+    let globalContencionC1 = 0;
+    let globalContencionC2 = 0;
+
     CORTES_DATA.forEach(c => {
         const realC = REAL_DB_CORTE_STATS[c.corte] || { c1: 0, c2: 0, total: 0 };
+        const cont1 = realC.c1 * contencionPct;
+        const cont2 = realC.c2 * contencionPct;
+        globalContencionC1 += cont1;
+        globalContencionC2 += cont2;
         corteStats[c.corte] = {
             ...c,
             c1: realC.c1,
             c2: realC.c2,
+            contencion1: cont1,
+            contencion2: cont2,
             total: realC.total
         };
     });
@@ -137,6 +144,8 @@ function calculateMetrics() {
         globalTotal,
         globalC1,
         globalC2,
+        globalContencionC1,
+        globalContencionC2,
         globalFacturacion,
         segmentStats,
         corteStats
@@ -209,10 +218,18 @@ function renderDashboard() {
     const cortesTbody = document.querySelector('#tableCortes tbody');
     cortesTbody.innerHTML = '';
 
+    let sumCorteC1 = 0, sumCorteC2 = 0, sumCorteCont1 = 0, sumCorteCont2 = 0, sumCorteTotal = 0;
+
     CORTES_DATA.forEach(c => {
         const cs = metrics.corteStats[c.corte];
         const corteC1Pct = cs.total > 0 ? (cs.c1 / cs.total) * 100 : 0;
         const corteC2Pct = cs.total > 0 ? (cs.c2 / cs.total) * 100 : 0;
+
+        sumCorteC1 += cs.c1;
+        sumCorteC2 += cs.c2;
+        sumCorteCont1 += cs.contencion1;
+        sumCorteCont2 += cs.contencion2;
+        sumCorteTotal += cs.total;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -223,6 +240,8 @@ function renderDashboard() {
             <td>${c.dias_c2} días</td>
             <td>${formatCurrency(cs.c1)}</td>
             <td>${formatCurrency(cs.c2)}</td>
+            <td><strong style="color: #10b981;">${formatCurrency(cs.contencion1)}</strong></td>
+            <td><strong style="color: #f59e0b;">${formatCurrency(cs.contencion2)}</strong></td>
             <td><strong>${formatCurrency(cs.total)}</strong></td>
             <td>
                 <span class="badge-c1 kpi-badge">${formatPct(corteC1Pct)}</span> / 
@@ -231,6 +250,14 @@ function renderDashboard() {
         `;
         cortesTbody.appendChild(tr);
     });
+
+    if (document.getElementById('totCorteC1')) {
+        document.getElementById('totCorteC1').innerText = formatCurrency(sumCorteC1);
+        document.getElementById('totCorteC2').innerText = formatCurrency(sumCorteC2);
+        document.getElementById('totCorteCont1').innerText = formatCurrency(sumCorteCont1);
+        document.getElementById('totCorteCont2').innerText = formatCurrency(sumCorteCont2);
+        document.getElementById('totCorteTotal').innerText = formatCurrency(sumCorteTotal);
+    }
 
     // 4. Render Charts
     renderCharts(metrics);
