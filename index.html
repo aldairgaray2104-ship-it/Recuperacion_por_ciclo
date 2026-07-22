@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tablero de Recuperación por Ciclo y Aranceles</title>
+    <!-- Google Fonts & Font Awesome Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo-icon"><i class="fa-solid fa-chart-pie"></i></div>
+                <div class="brand-text">
+                    <h2>Recuperación Pro</h2>
+                    <span>Gestión & Facturación</span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="#kpi-overview" class="nav-item active"><i class="fa-solid fa-table-cells-large"></i> Resumen General</a>
+                <a href="#segment-analysis" class="nav-item"><i class="fa-solid fa-chart-column"></i> Por Segmento y Ciclo</a>
+                <a href="#corte-analysis" class="nav-item"><i class="fa-solid fa-calendar-days"></i> Cortes & FLP</a>
+                <a href="#fee-matrix" class="nav-item"><i class="fa-solid fa-file-invoice-dollar"></i> Esquema Aranceles</a>
+                <a href="#sql-generator" class="nav-item"><i class="fa-solid fa-database"></i> Consultas SQL</a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="period-badge">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    <div>
+                        <span class="label">Periodo Activo</span>
+                        <strong>Junio y Julio 2026</strong>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header Bar -->
+            <header class="top-header">
+                <div class="header-title">
+                    <h1>Tablero de Pagos y Recuperación por Ciclo</h1>
+                    <p>Análisis de recaudación en <strong>Ciclo 1 vs Ciclo 2</strong> por segmento (1 PV y 2 PV) y determinación del monto a facturar por honorarios.</p>
+                </div>
+
+                <div class="header-actions">
+                    <div class="control-group">
+                        <label for="prodTierSelect"><i class="fa-solid fa-arrow-trend-up"></i> Tier Productividad:</label>
+                        <select id="prodTierSelect" class="select-input">
+                            <option value="120+">120.1% a "N" (Máximo)</option>
+                            <option value="110-120">110.1% al 120%</option>
+                            <option value="100-110">100.1% al 110%</option>
+                            <option value="0-100" selected>0% al 100% (Base)</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="contencionPctSelect"><i class="fa-solid fa-shield-halved"></i> % Contención:</label>
+                        <select id="contencionPctSelect" class="select-input">
+                            <option value="100">100% Contención (Pago >= Mínimo)</option>
+                            <option value="85" selected>85% Contención / 15% Parcial</option>
+                            <option value="70">70% Contención / 30% Parcial</option>
+                            <option value="50">50% Contención / 50% Parcial</option>
+                        </select>
+                    </div>
+
+                    <button id="btnLoadDemo" class="btn btn-secondary"><i class="fa-solid fa-rotate-right"></i> Recargar Datos</button>
+                </div>
+            </header>
+
+            <!-- KPI Cards Overview -->
+            <section id="kpi-overview" class="kpi-grid">
+                <div class="kpi-card card-total">
+                    <div class="kpi-icon"><i class="fa-solid fa-money-bill-wave"></i></div>
+                    <div class="kpi-details">
+                        <span class="kpi-title">Recuperación Total (Mes 07)</span>
+                        <h2 id="kpiTotalAmount">$0.00</h2>
+                        <span class="kpi-subtext"><i class="fa-solid fa-check"></i> Pagos con espagogestion=1</span>
+                    </div>
+                </div>
+
+                <div class="kpi-card card-ciclo1">
+                    <div class="kpi-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                    <div class="kpi-details">
+                        <span class="kpi-title">Recuperación CICLO 1 (≤ FLP)</span>
+                        <h2 id="kpiCiclo1Amount">$0.00</h2>
+                        <span class="kpi-badge badge-c1" id="kpiCiclo1Pct">0.0% del total</span>
+                    </div>
+                </div>
+
+                <div class="kpi-card card-ciclo2">
+                    <div class="kpi-icon"><i class="fa-solid fa-hourglass-half"></i></div>
+                    <div class="kpi-details">
+                        <span class="kpi-title">Recuperación CICLO 2 (> FLP)</span>
+                        <h2 id="kpiCiclo2Amount">$0.00</h2>
+                        <span class="kpi-badge badge-c2" id="kpiCiclo2Pct">0.0% del total</span>
+                    </div>
+                </div>
+
+                <div class="kpi-card card-facturacion">
+                    <div class="kpi-icon"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                    <div class="kpi-details">
+                        <span class="kpi-title">Monto Estimado a Facturar</span>
+                        <h2 id="kpiFacturacionTotal">$0.00</h2>
+                        <span class="kpi-subtext" id="kpiTasaEfectiva">Tasa promedio: 0.00%</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Main Charts Row -->
+            <section class="charts-row">
+                <div class="card chart-card flex-2">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-chart-column"></i> Recuperación por Segmento y Ciclo</h3>
+                        <span class="card-subtitle">Comparativa entre 1 PV y 2 PV en Ciclo 1 vs Ciclo 2</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="segmentStackedChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card chart-card flex-1">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-chart-pie"></i> Participación por Ciclo</h3>
+                        <span class="card-subtitle">% Total de Recuperación en Ciclo 1 vs Ciclo 2</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="cicloDonutChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Table 1: Breakdown by Segment and Cycle -->
+            <section id="segment-analysis" class="card table-card">
+                <div class="card-header">
+                    <div>
+                        <h3><i class="fa-solid fa-table-list"></i> Desglose Detallado por Segmento y Facturación por Arancel</h3>
+                        <p class="card-subtitle">Cálculo individual por Ciclo 1 y Ciclo 2 según aranceles aplicables por segmento</p>
+                    </div>
+                    <div class="badge-group">
+                        <span class="tag tag-1pv"><i class="fa-solid fa-tag"></i> 1 PV</span>
+                        <span class="tag tag-2pv"><i class="fa-solid fa-tag"></i> 2 PV</span>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table class="data-table" id="tableSegmentBreakdown">
+                        <thead>
+                            <tr>
+                                <th>Segmento</th>
+                                <th>Recuperado Total</th>
+                                <th>Recuperado Ciclo 1</th>
+                                <th>% Ciclo 1</th>
+                                <th>Facturación Ciclo 1</th>
+                                <th>Recuperado Ciclo 2</th>
+                                <th>% Ciclo 2</th>
+                                <th>Facturación Ciclo 2</th>
+                                <th>Total Facturable</th>
+                                <th>% Fee Promedio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Dynamic Content populated by app.js -->
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-totals">
+                                <td>TOTALES</td>
+                                <td id="totRecuperado">$0.00</td>
+                                <td id="totC1Recuperado">$0.00</td>
+                                <td id="totC1Pct">0%</td>
+                                <td id="totC1Fact">$0.00</td>
+                                <td id="totC2Recuperado">$0.00</td>
+                                <td id="totC2Pct">0%</td>
+                                <td id="totC2Fact">$0.00</td>
+                                <td id="totFacturable">$0.00</td>
+                                <td id="totFeeProm">0.00%</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Section 2: Cortes and FLP Analysis -->
+            <section id="corte-analysis" class="grid-2-col">
+                <div class="card table-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-calendar-days"></i> Matriz de Cortes y Fecha Límite de Pago (FLP)</h3>
+                        <p class="card-subtitle">Recuperación acumulada por día límite de pago de cada corte (11 Cortes)</p>
+                    </div>
+
+                    <div class="table-wrapper text-sm">
+                        <table class="data-table" id="tableCortes">
+                            <thead>
+                                <tr>
+                                    <th>Corte</th>
+                                    <th>FLP (Día)</th>
+                                    <th>Asignación</th>
+                                    <th>Días C1</th>
+                                    <th>Días C2</th>
+                                    <th>Monto Ciclo 1</th>
+                                    <th>Monto Ciclo 2</th>
+                                    <th>Total Corte</th>
+                                    <th>% C1 / C2</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dynamic rows for Cortes 3, 5, 8, 10, 11, 15, 19, 20, 23, 25, 28 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-chart-line"></i> Distribución de Recuperación por Corte</h3>
+                        <span class="card-subtitle">Comparativa entre Ciclo 1 y Ciclo 2 en cada corte operativo</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="corteBarChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 3: Fee Scheme & Contencion Logic -->
+            <section id="fee-matrix" class="card">
+                <div class="card-header">
+                    <h3><i class="fa-solid fa-scale-balanced"></i> Esquema Oficial de Honorarios por Desempeño y Reglas de Contención</h3>
+                    <p class="card-subtitle">Basado en las reglas de evaluación independiente por ciclo</p>
+                </div>
+
+                <div class="fee-tables-grid">
+                    <!-- Table 1 PV -->
+                    <div class="fee-box">
+                        <div class="fee-header header-1pv">
+                            <span class="fee-badge">1 PV</span>
+                            <h4>Honorarios 1 PV</h4>
+                        </div>
+                        <table class="fee-mini-table">
+                            <thead>
+                                <tr>
+                                    <th>% Productividad</th>
+                                    <th>Fee >= Mínimo (Contención)</th>
+                                    <th>Fee < Mínimo (Parcial)</th>
+                                    <th>Fee Indirecto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="tier-120"><td>120.1% a "N"</td><td>4.12%</td><td>2.88%</td><td>1.03%</td></tr>
+                                <tr class="tier-110-120"><td>110.1% al 120%</td><td>3.75%</td><td>2.63%</td><td>0.94%</td></tr>
+                                <tr class="tier-100-110"><td>100.1% al 110%</td><td>3.50%</td><td>2.45%</td><td>0.88%</td></tr>
+                                <tr class="tier-0-100 highlight-tier"><td>0% al 100%</td><td>3.25%</td><td>2.28%</td><td>0.81%</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Table 2 PV -->
+                    <div class="fee-box">
+                        <div class="fee-header header-2pv">
+                            <span class="fee-badge">2 PV</span>
+                            <h4>Honorarios 2 PV</h4>
+                        </div>
+                        <table class="fee-mini-table">
+                            <thead>
+                                <tr>
+                                    <th>% Productividad</th>
+                                    <th>Fee >= Mínimo (Contención)</th>
+                                    <th>Fee < Mínimo (Parcial)</th>
+                                    <th>Fee Indirecto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="tier-120"><td>120.1% a "N"</td><td>6.60%</td><td>4.62%</td><td>1.65%</td></tr>
+                                <tr class="tier-110-120"><td>110.1% al 120%</td><td>6.01%</td><td>4.21%</td><td>1.50%</td></tr>
+                                <tr class="tier-100-110"><td>100.1% al 110%</td><td>5.60%</td><td>3.92%</td><td>1.40%</td></tr>
+                                <tr class="tier-0-100 highlight-tier"><td>0% al 100%</td><td>5.19%</td><td>3.63%</td><td>1.30%</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="evaluation-rules">
+                    <h4><i class="fa-solid fa-circle-info"></i> Criterios de Evaluación por Ciclo (Contención)</h4>
+                    <div class="scenarios-grid">
+                        <div class="scenario-card">
+                            <span class="sc-badge sc-green"><i class="fa-solid fa-check"></i> Escenario 1</span>
+                            <h5>Contención Total</h5>
+                            <p>Cumple el pago mínimo requerido en ambos ciclos (Ciclo 1: Contención, Ciclo 2: Contención).</p>
+                        </div>
+                        <div class="scenario-card">
+                            <span class="sc-badge sc-orange"><i class="fa-solid fa-triangle-exclamation"></i> Escenario 2</span>
+                            <h5>Pago Parcial</h5>
+                            <p>No cumple el pago mínimo en ninguno de los dos ciclos. Se aplica tarifa de Pago Parcial.</p>
+                        </div>
+                        <div class="scenario-card">
+                            <span class="sc-badge sc-blue"><i class="fa-solid fa-arrow-trend-up"></i> Escenario 3</span>
+                            <h5>Mejora en Ciclo 2</h5>
+                            <p>Ciclo 1 es parcial, pero el cliente se regulariza en Ciclo 2 alcanzando el pago mínimo.</p>
+                        </div>
+                        <div class="scenario-card">
+                            <span class="sc-badge sc-purple"><i class="fa-solid fa-handshake"></i> Escenario 4</span>
+                            <h5>Reestructura</h5>
+                            <p>Convenios/Reestructuras en cualquier ciclo aplican como pago parcial (cuenta no regularizada).</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 4: SQL Code Generator -->
+            <section id="sql-generator" class="card">
+                <div class="card-header">
+                    <div>
+                        <h3><i class="fa-solid fa-terminal"></i> Consulta SQL Optimizada para la Base de Datos</h3>
+                        <p class="card-subtitle">Basada en la subconsulta solicitada excluyendo PREV (<code>WHERE segmento IN ('1','2')</code>) y desglosando por Ciclo 1 vs Ciclo 2</p>
+                    </div>
+                    <button id="btnCopySql" class="btn btn-primary"><i class="fa-solid fa-copy"></i> Copiar SQL</button>
+                </div>
+
+                <div class="sql-code-container">
+                    <pre><code id="sqlCodeText">-- CONSULTA OPTIMIZADA DE RECUPERACIÓN POR SEGMENTO (1 PV Y 2 PV) Y CICLO (JUNIO Y JULIO)
+SELECT 
+    z.segmento,
+    CASE 
+        WHEN DAY(z.fecha_pago) >= c.asig_dia THEN 'Ciclo 1'
+        ELSE 'Ciclo 2'
+    END AS ciclo,
+    SUM(z.monto) AS monto_recuperado,
+    COUNT(*) AS total_pagos,
+    ROUND(
+        SUM(z.monto) * 100.0 / SUM(SUM(z.monto)) OVER(PARTITION BY z.segmento), 2
+    ) AS pct_recuperacion_ciclo
+FROM (
+    SELECT 
+        CASE 
+            WHEN pago_descuento = 0 THEN 'PREV'
+            ELSE tipo_asignacion 
+        END AS segmento,
+        monto,
+        fecha_pago,
+        corte,
+        espagogestion
+    FROM pagos_b 
+    WHERE MONTH(fecha_pago) IN (6, 7)
+      AND espagogestion = 1
+) z
+INNER JOIN (
+    -- Mapeo oficial de Corte y Día de Asignación (Imagen 1 y 2)
+    SELECT 3 AS corte, 4 AS asig_dia UNION ALL
+    SELECT 5, 6 UNION ALL
+    SELECT 8, 9 UNION ALL
+    SELECT 10, 11 UNION ALL
+    SELECT 11, 12 UNION ALL
+    SELECT 15, 16 UNION ALL
+    SELECT 19, 20 UNION ALL
+    SELECT 20, 21 UNION ALL
+    SELECT 23, 24 UNION ALL
+    SELECT 25, 26 UNION ALL
+    SELECT 28, 29
+) c ON z.corte = c.corte
+WHERE z.segmento IN ('1', '2')
+GROUP BY 
+    z.segmento,
+    CASE 
+        WHEN DAY(z.fecha_pago) >= c.asig_dia THEN 'Ciclo 1'
+        ELSE 'Ciclo 2'
+    END
+ORDER BY z.segmento, ciclo;</code></pre>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
