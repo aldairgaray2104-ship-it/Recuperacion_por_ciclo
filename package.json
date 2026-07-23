@@ -1,0 +1,12 @@
+{
+  "name": "recuperacion-por-ciclo",
+  "version": "1.0.0",
+  "description": "Tablero de Recuperación por Ciclo y Aranceles con actualización en vivo desde Aiven MySQL",
+  "main": "app.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "mysql2": "^3.12.0"
+  }
+}

@@ -58,33 +58,72 @@ function formatPct(value) {
     return value.toFixed(2) + '%';
 }
 
-// Real Database Metrics (Calibrated to User's Exact DBeaver Query: MONTH(fecha_pago) = 07 AND espagogestion = 1)
-const REAL_DB_SEGMENT_STATS = {
-    "1 PV": {
-        "total": 17295148.08,
-        "c1": 3708079.75,
-        "c2": 13587068.33
-    },
-    "2 PV": {
-        "total": 3447672.42,
-        "c1": 534389.23,
-        "c2": 2913283.19
-    }
+// Real Database Metrics (Live Connection from Aiven MySQL)
+let REAL_DB_SEGMENT_STATS = {
+    "1 PV": { "total": 36283577.18, "c1": 13520575.22, "c2": 22763001.96 },
+    "2 PV": { "total": 8419557.12, "c1": 2265362.21, "c2": 6154194.91 }
 };
 
-const REAL_DB_CORTE_STATS = {
-    3:  { c1: 10130.68,   c2: 500.00,       total: 10630.68 },
-    5:  { c1: 12966.00,   c2: 0.00,         total: 12966.00 },
-    8:  { c1: 540200.50,  c2: 342100.25,    total: 882300.75 },
-    10: { c1: 2537200.00, c2: 2009800.00,   total: 4547000.00 },
-    11: { c1: 84360.71,   c2: 161207.19,    total: 245567.90 },
-    15: { c1: 1046852.12, c2: 2100133.28,   total: 3146985.40 },
-    19: { c1: 3152.10,    c2: 181440.00,    total: 184592.10 },
-    20: { c1: 0.00,       c2: 2285032.10,   total: 2285032.10 },
-    23: { c1: 0.00,       c2: 2960205.20,   total: 2960205.20 },
-    25: { c1: 0.00,       c2: 4764115.12,   total: 4764115.12 },
-    28: { c1: 0.00,       c2: 1691425.25,   total: 1691425.25 }
+let REAL_DB_CORTE_STATS = {
+    3:  { c1: 16992.68,   c2: 500.00,       total: 17492.68 },
+    5:  { c1: 21953.00,   c2: 0.00,         total: 21953.00 },
+    8:  { c1: 1143426.66, c2: 662336.20,    total: 1805762.86 },
+    10: { c1: 5729826.36, c2: 3610825.38,   total: 9340651.74 },
+    11: { c1: 226526.91,  c2: 288073.42,    total: 514600.33 },
+    15: { c1: 2903950.12, c2: 3706364.54,   total: 6610314.66 },
+    19: { c1: 132911.08,  c2: 315479.17,    total: 448390.25 },
+    20: { c1: 1369752.31, c2: 3631524.35,   total: 5001276.66 },
+    23: { c1: 1563720.75, c2: 5335652.98,   total: 6899373.73 },
+    25: { c1: 2227176.25, c2: 8343681.79,   total: 10570858.04 },
+    28: { c1: 449701.31,  c2: 3022759.04,   total: 3472460.35 }
 };
+
+// Fetch real-time aggregated metrics from Aiven DB API
+async function fetchLiveMetricsFromAiven() {
+    const badge = document.getElementById('liveStatusBadge');
+    const btn = document.getElementById('btnLoadDemo');
+
+    if (badge) {
+        badge.className = 'live-status-badge status-loading';
+        badge.innerHTML = '<i class="fa-solid fa-circle-dot animate-pulse"></i> <span>Actualizando desde Aiven...</span>';
+    }
+    if (btn) {
+        btn.querySelector('i').classList.add('fa-spin');
+    }
+
+    try {
+        const response = await fetch('/api/metrics', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+
+        if (data.status === 'success' && data.segmentStats && data.corteStats) {
+            REAL_DB_SEGMENT_STATS = data.segmentStats;
+            REAL_DB_CORTE_STATS = data.corteStats;
+
+            const timeStr = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            if (badge) {
+                badge.className = 'live-status-badge';
+                badge.innerHTML = `<i class="fa-solid fa-circle-dot text-success animate-pulse"></i> <span>Aiven DB: En Vivo</span> <small>(${timeStr})</small>`;
+            }
+
+            renderDashboard();
+        } else {
+            throw new Error('Respuesta inválida del servidor');
+        }
+    } catch (err) {
+        console.warn('No se pudo conectar a /api/metrics en tiempo real. Usando datos guardados localmente:', err);
+        if (badge) {
+            badge.className = 'live-status-badge status-offline';
+            badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <span>Aiven DB: Modo Offline</span>';
+        }
+    } finally {
+        if (btn) {
+            btn.querySelector('i').classList.remove('fa-spin');
+        }
+    }
+}
+
 
 function generateDemoData() {
     paymentsData = [];
@@ -463,8 +502,7 @@ function setupEventListeners() {
     document.getElementById('contencionPctSelect').addEventListener('change', renderDashboard);
 
     document.getElementById('btnLoadDemo').addEventListener('click', () => {
-        generateDemoData();
-        renderDashboard();
+        fetchLiveMetricsFromAiven();
     });
 
     document.getElementById('btnCopySql').addEventListener('click', () => {
@@ -518,10 +556,17 @@ function updateHighlightTier() {
     document.querySelectorAll(`.fee-mini-table .${targetClass}`).forEach(tr => tr.classList.add('highlight-tier'));
 }
 
-// Initialize Application
+// Initialize Application with Live Aiven Sync & Auto-Refresh
 document.addEventListener('DOMContentLoaded', () => {
     generateDemoData();
     setupEventListeners();
     updateHighlightTier();
     renderDashboard();
+    
+    // Initial fetch from live Aiven DB API
+    fetchLiveMetricsFromAiven();
+
+    // Auto-refresh every 30 seconds
+    setInterval(fetchLiveMetricsFromAiven, 30000);
 });
+

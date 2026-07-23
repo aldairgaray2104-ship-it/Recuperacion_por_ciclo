@@ -73,7 +73,12 @@
                         </select>
                     </div>
 
-                    <button id="btnLoadDemo" class="btn btn-secondary"><i class="fa-solid fa-rotate-right"></i> Recargar Datos</button>
+                    <div id="liveStatusBadge" class="live-status-badge status-loading">
+                        <i class="fa-solid fa-circle-dot animate-pulse"></i>
+                        <span>Conectando a Aiven DB...</span>
+                    </div>
+
+                    <button id="btnLoadDemo" class="btn btn-secondary" title="Sincronizar en vivo desde Aiven MySQL"><i class="fa-solid fa-rotate-right"></i> Recargar Datos</button>
                 </div>
             </header>
 
