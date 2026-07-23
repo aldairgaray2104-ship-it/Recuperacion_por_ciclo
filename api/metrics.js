@@ -64,7 +64,7 @@ module.exports = async (req, res) => {
           fecha_pago,
           corte
         FROM pagos_b 
-        WHERE MONTH(fecha_pago) IN (6, 7)
+        WHERE MONTH(fecha_pago) = 7
           AND espagogestion = 1
       ) z
       INNER JOIN (

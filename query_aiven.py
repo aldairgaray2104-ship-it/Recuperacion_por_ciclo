@@ -46,7 +46,7 @@ FROM (
         corte,
         espagogestion
     FROM pagos_b 
-    WHERE MONTH(fecha_pago) IN (6, 7)
+    WHERE MONTH(fecha_pago) = 7
       AND espagogestion = 1
 ) z
 INNER JOIN (
@@ -86,7 +86,7 @@ FROM (
         CASE WHEN pago_descuento = 0 THEN 'PREV' ELSE tipo_asignacion END AS segmento,
         monto, fecha_pago, corte
     FROM pagos_b 
-    WHERE MONTH(fecha_pago) IN (6, 7) AND espagogestion = 1
+    WHERE MONTH(fecha_pago) = 7 AND espagogestion = 1
 ) z
 INNER JOIN (
     SELECT 3 AS corte, 4 AS asig_dia UNION ALL
