@@ -44,6 +44,7 @@ module.exports = async (req, res) => {
 
   let connection;
   try {
+    try { require('dns').setDefaultResultOrder('ipv4first'); } catch (e) {}
     connection = await mysql.createConnection(AIVEN_CONFIG);
 
     const sql = `

@@ -2,3 +2,8 @@ node_modules/
 .env
 .env.local
 test_server.js
+find_*.py
+inspect_*.py
+search_*.py
+query_pagos_bradesco.py
+
